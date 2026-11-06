@@ -31,18 +31,26 @@ class WorkflowTests(unittest.TestCase):
             self.assertFalse(sdpa_attention.use_gqa_in_sdpa(None, fake_cuda_key))
 
     def test_colab_cells_compile_and_use_full_public_split(self):
+        try:
+            from IPython.core.inputtransformer2 import TransformerManager
+        except ImportError:
+            self.skipTest('Install requirements-dev.txt for notebook syntax checks')
+        transformer = TransformerManager()
         notebook = json.loads(Path('notebooks/lifemate_colab.ipynb').read_text(encoding='utf-8'))
         source = []
         for cell in notebook['cells']:
             if cell['cell_type'] == 'code':
                 text = ''.join(cell['source'])
-                compile(text, 'lifemate_colab.ipynb', 'exec')
+                compile(transformer.transform_cell(text), 'lifemate_colab.ipynb', 'exec')
                 source.append(text)
         full_run = next(s for s in source if '# 8.' in s)
-        self.assertIn('"public_test"', full_run)
-        self.assertNotIn('"--limit"', full_run)
-        self.assertNotIn('"--oracle-transcripts"', full_run)
+        self.assertIn('--split public_test', full_run)
+        self.assertNotIn('--limit', full_run)
+        self.assertNotIn('--oracle-transcripts', full_run)
         self.assertIn('baseline.validate_submission', '\n'.join(source))
+        self.assertNotIn('subprocess', '\n'.join(source))
+        self.assertNotIn('drive.mount', '\n'.join(source))
+        self.assertNotIn('.venv-colab', '\n'.join(source))
 
     def test_local_and_colab_use_same_parameter_contract(self):
         local = load_config('configs/local.json')
