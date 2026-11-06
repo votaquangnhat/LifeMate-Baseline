@@ -17,8 +17,10 @@ def main():
     cfg = load_config(args.config)
     failures = []
     print(f'Python {sys.version.split()[0]} | executable: {sys.executable}')
-    if sys.version_info[:2] not in ((3, 11), (3, 12)):
-        failures.append('Use Python 3.11 or 3.12 for the pinned dependencies')
+    # Local setup uses 3.12, but Colab runs its own interpreter (including 3.13).
+    # Enforce the code's minimum rather than treating the local pin as a ceiling.
+    if sys.version_info[:2] < (3, 10):
+        failures.append('Python 3.10 or newer is required')
     for package in ('torch', 'transformers', 'peft', 'soundfile', 'scikit-learn'):
         try:
             print(f'{package}: {importlib.metadata.version(package)}')
