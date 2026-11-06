@@ -1,0 +1,5 @@
+{
+  "llm": {"path": "models/Qwen3-0.6B", "device": "cpu", "dtype": "float32"},
+  "asr": {"path": "models/PhoWhisper-small", "device": "cpu", "dtype": "float32"},
+  "agent": {"seconds": 600, "fewshot": 0}
+}

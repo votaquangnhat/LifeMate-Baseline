@@ -1,0 +1,4 @@
+{
+  "llm": {"path": "models/Qwen3-4B-Instruct-2507", "device": "cuda:0", "dtype": "float16"},
+  "asr": {"path": "models/PhoWhisper-small", "device": "cuda:0", "dtype": "float16"}
+}
