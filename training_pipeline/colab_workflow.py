@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from textwrap import dedent
 
 def setup_environment(WORK_ROOT, OUTPUT_DIR):
     import os
@@ -51,13 +52,15 @@ def setup_environment(WORK_ROOT, OUTPUT_DIR):
     ENV_DIR = WORK_ROOT / 'agent_env'
     ENV_DIR.mkdir(parents=True, exist_ok=True)
     AGENT_PYTHON = ENV_DIR / 'bin/python'
-    probe_code = '''import torch, json, importlib.metadata as m
+    probe_code = dedent('''
+    import torch, json, importlib.metadata as m
     assert torch.cuda.is_available() and torch.cuda.device_count() >= 1, 'Select a Colab GPU runtime.' 
     pinned={}
     for name in ('torch','torchvision','torchaudio','triton'):
      try: pinned[name]=m.version(name)
      except m.PackageNotFoundError: pass
-    print(json.dumps({'pinned': pinned, 'gpus': [{'name':torch.cuda.get_device_name(i),'gib':torch.cuda.get_device_properties(i).total_memory/2**30} for i in range(torch.cuda.device_count())]}))'''
+    print(json.dumps({'pinned': pinned, 'gpus': [{'name':torch.cuda.get_device_name(i),'gib':torch.cuda.get_device_properties(i).total_memory/2**30} for i in range(torch.cuda.device_count())]}))
+    ''')
     host = json.loads(subprocess.check_output([sys.executable, '-c', probe_code], text=True))
     print('Existing CUDA stack:', json.dumps(host, indent=2))
     AGENT_PYTHON, AGENT_PIP, AGENT_PIP_ENV = prepare_agent_python(ENV_DIR, sys.executable)
@@ -81,7 +84,8 @@ def setup_environment(WORK_ROOT, OUTPUT_DIR):
     # Resolve compatible library versions; preserve the existing torch/CUDA builds.
     subprocess.run(AGENT_PIP + ['install', '--upgrade',
                     '--upgrade-strategy', 'only-if-needed', '-c', str(constraints), *PACKAGES], check=True, env=AGENT_PIP_ENV)
-    version_code = '''import importlib.metadata as m, json, torch
+    version_code = dedent('''
+    import importlib.metadata as m, json, torch
     names=['torch','transformers','peft','accelerate','bitsandbytes','datasets','trl','unsloth','unsloth_zoo','tokenizers','jinja2','huggingface_hub','safetensors','soundfile','librosa','sentencepiece']
     result={name:m.version(name) for name in names}
     result['source_revisions']={}
@@ -90,7 +94,8 @@ def setup_environment(WORK_ROOT, OUTPUT_DIR):
      if raw:
       info=json.loads(raw)
       result['source_revisions'][name]={'url':info.get('url'),'vcs_info':{'commit_id':info.get('vcs_info',{}).get('commit_id')}}
-    print(json.dumps(result))'''
+    print(json.dumps(result))
+    ''')
     versions = json.loads(subprocess.check_output([str(AGENT_PYTHON), '-c', version_code], text=True))
     if versions['torch'] != host['pinned']['torch']:
         raise RuntimeError('Unexpected CUDA stack change. Inspect install output before loading a model.')

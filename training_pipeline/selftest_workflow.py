@@ -1,5 +1,11 @@
 """Host-side workflow checks without network, installs or GPU allocations."""
 import json
+import ast
+import contextlib
+import importlib.metadata
+import inspect
+import io
+import types
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,6 +15,43 @@ import colab_workflow as workflow
 
 
 class Tests(unittest.TestCase):
+    def setup_script(self, name):
+        tree = ast.parse(inspect.getsource(workflow.setup_environment))
+        assignment = next(node for node in ast.walk(tree) if isinstance(node, ast.Assign)
+                          and any(isinstance(t, ast.Name) and t.id == name for t in node.targets))
+        return eval(compile(ast.Expression(assignment.value), '<setup script>', 'eval'),
+                    {'dedent': workflow.dedent})
+
+    def test_subprocess_payloads_compile_without_function_indentation(self):
+        for name in ('probe_code', 'version_code'):
+            compile(self.setup_script(name), name, 'exec')
+
+    def test_actual_gpu_probe_script_emits_json(self):
+        cuda = types.SimpleNamespace(is_available=lambda: True, device_count=lambda: 1,
+                                     get_device_name=lambda i: 'Test L4',
+                                     get_device_properties=lambda i: types.SimpleNamespace(total_memory=24 * 2**30))
+        output = io.StringIO()
+        with patch.dict('sys.modules', {'torch': types.SimpleNamespace(cuda=cuda)}), \
+                patch.object(importlib.metadata, 'version', return_value='1.0'), \
+                contextlib.redirect_stdout(output):
+            exec(self.setup_script('probe_code'), {})
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['gpus'], [{'name': 'Test L4', 'gib': 24}])
+        self.assertEqual(result['pinned']['torch'], '1.0')
+
+    def test_actual_package_probe_script_emits_json(self):
+        output = io.StringIO()
+        distribution = types.SimpleNamespace(read_text=lambda name: json.dumps({
+            'url': 'https://example.invalid/repo', 'vcs_info': {'commit_id': 'abc'}}))
+        with patch.dict('sys.modules', {'torch': types.SimpleNamespace()}), \
+                patch.object(importlib.metadata, 'version', return_value='1.0'), \
+                patch.object(importlib.metadata, 'distribution', return_value=distribution), \
+                contextlib.redirect_stdout(output):
+            exec(self.setup_script('version_code'), {})
+        result = json.loads(output.getvalue())
+        self.assertEqual(result['torch'], '1.0')
+        self.assertEqual(result['source_revisions']['unsloth']['vcs_info']['commit_id'], 'abc')
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
