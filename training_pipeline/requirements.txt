@@ -1,0 +1,13 @@
+# Installed in the isolated agent environment; preserve host CUDA PyTorch.
+unsloth @ git+https://github.com/unslothai/unsloth.git
+unsloth_zoo @ git+https://github.com/unslothai/unsloth-zoo.git
+transformers>=4.51,<6
+peft
+accelerate
+bitsandbytes
+datasets
+trl
+jinja2>=3.1,<4
+soundfile
+librosa
+sentencepiece
