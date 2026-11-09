@@ -52,8 +52,10 @@ def prepare(cfg):
         raise ValueError("Empty split; inspect grouping")
     tokenizer = AutoTokenizer.from_pretrained(cfg["tokenizer_id"], revision=cfg["tokenizer_revision"])
     tokenizer.pad_token = tokenizer.pad_token or tokenizer.eos_token
+    from qwen35_policy import configure_tokenizer
+    configure_tokenizer(tokenizer, cfg)
     probe = tokenizer.apply_chat_template([{"role":"user", "content":"test"}], tokenize=False, add_generation_prompt=True)
-    if "<think>" in probe or not probe.endswith("<|im_start|>assistant\n"):
+    if not cfg.get("thinking_mode") and ("<think>" in probe or not probe.endswith("<|im_start|>assistant\n")):
         raise ValueError("Expected the native Qwen3 Instruct-2507 non-thinking template")
     if tokenizer.convert_tokens_to_ids("<|im_end|>") != tokenizer.eos_token_id:
         raise ValueError("Unexpected EOS token")

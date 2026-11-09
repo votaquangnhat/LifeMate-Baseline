@@ -12,7 +12,7 @@ import sys
 from pathlib import Path
 from textwrap import dedent
 
-def setup_environment(WORK_ROOT, OUTPUT_DIR):
+def setup_environment(WORK_ROOT, OUTPUT_DIR, MODEL_PROFILE="qwen3"):
     import os
     import sys
     import json
@@ -68,6 +68,8 @@ def setup_environment(WORK_ROOT, OUTPUT_DIR):
     constraints.write_text(''.join(f'{name}=={version}\n' for name, version in host['pinned'].items()))
     PACKAGES = [line.strip() for line in (Path(__file__).parent / 'requirements.txt').read_text().splitlines()
                 if line.strip() and not line.lstrip().startswith('#')]
+    if MODEL_PROFILE == "qwen35_thinking":
+        PACKAGES = ["transformers>=5.2,<6" if x.startswith("transformers") else x for x in PACKAGES]
     # Reproduce package versions/Unsloth commits when resuming this run.
     saved_path = OUTPUT_DIR / 'package_versions.json'
     saved_versions = json.loads(saved_path.read_text()) if saved_path.is_file() else None
@@ -128,7 +130,7 @@ def prepare_data(WORK_ROOT, LOCAL_ARCHIVE=Path("/content/train+public_test.zip")
     return DATA_ROOT
 
 
-def configure(*, DATA_ROOT, OUTPUT_DIR, CODE_DIR, CONFIG_PATH, WORK_ROOT, RUN_NAME, EPOCHS, TRAIN_START, PREVIOUS_RUN_NAME, RESUME_CHECKPOINT, ASR_TRANSCRIPTS, DRIVE_ROOT):
+def configure(*, DATA_ROOT, OUTPUT_DIR, CODE_DIR, CONFIG_PATH, WORK_ROOT, RUN_NAME, EPOCHS, TRAIN_START, PREVIOUS_RUN_NAME, RESUME_CHECKPOINT, ASR_TRANSCRIPTS, DRIVE_ROOT, MODEL_PROFILE="qwen3"):
     CONFIG = dict(
         train_start=TRAIN_START, previous_run_name=PREVIOUS_RUN_NAME if TRAIN_START == "best" else None,
         data_root=str(DATA_ROOT), output_dir=str(OUTPUT_DIR), code_dir=str(CODE_DIR), config_path=str(CONFIG_PATH),
@@ -151,6 +153,16 @@ def configure(*, DATA_ROOT, OUTPUT_DIR, CODE_DIR, CONFIG_PATH, WORK_ROOT, RUN_NA
         asr_manifest_path='', hash_audio_for_split=True, global_meta_tools=['sys.ask_missing_info'],
         resume_checkpoint=RESUME_CHECKPOINT, public_transcripts_path=str(ASR_TRANSCRIPTS),
     )
+    if MODEL_PROFILE == "qwen35_thinking":
+        CONFIG.update(model_profile=MODEL_PROFILE, thinking_mode="brief_procedural_v1",
+            model_id="unsloth/Qwen3.5-4B", model_revision="3764fa359b9082ea5a1e4a5e3ac3aaf6e9671636",
+            tokenizer_id="Qwen/Qwen3.5-4B", tokenizer_revision="851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+            lora_rank=16, lora_alpha=32, learning_rate=1e-4, optimizer="adamw_torch",
+            thinking_tokens=512, action_json_tokens=512,
+            requested_max_length=8192, max_length=8192,
+            requested_max_new_tokens=1025, max_new_tokens=1025, max_new_tokens_cap=1025)
+    elif MODEL_PROFILE != "qwen3":
+        raise ValueError("Unknown model profile: " + MODEL_PROFILE)
     assert TRAIN_START in {'fresh', 'best'}
     CONFIG['initial_adapter'] = ''
     CONFIG['initial_adapter_sha256'] = None
@@ -162,6 +174,9 @@ def configure(*, DATA_ROOT, OUTPUT_DIR, CODE_DIR, CONFIG_PATH, WORK_ROOT, RUN_NA
                     'lora_dropout','seed','hash_audio_for_split','asr_manifest_path','tool_schema_policy',
                     'top_k_apps','top_k_tools','top_k_history','keep_recent_history','prompt_target_tokens'):
             assert prior_config.get(key) == CONFIG[key], f'Previous best has incompatible {key}'
+        if CONFIG.get('thinking_mode'):
+            for key in ('model_profile', 'thinking_mode', 'thinking_tokens', 'action_json_tokens', 'optimizer'):
+                assert prior_config.get(key) == CONFIG[key], f'Previous best has incompatible {key}'
         source_adapter = previous_run / 'best_adapter'
         assert (previous_run / 'selection.json').is_file(), 'Run best-checkpoint selection in the previous run first.'
         for name in ('adapter_model.safetensors', 'adapter_config.json'):

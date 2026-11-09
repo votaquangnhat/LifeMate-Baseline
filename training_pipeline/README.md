@@ -1,3 +1,13 @@
+## Qwen3.5 Thinking training
+
+Use `notebooks/train_and_infer_qwen35_thinking.ipynb` for the new planner. Push both notebook and pipeline updates before Colab. The existing Qwen3 notebook remains available.
+
+This starts a fresh language LoRA on pretrained `unsloth/Qwen3.5-4B`, with the official Qwen tokenizer and thinking explicitly enabled. Qwen3 adapters cannot transfer. BF16 base weights, rank 16/alpha 32, LR 1e-4, one epoch per session; L4/A100 required. GPU preflight checks real memory use. ASR and BGE are frozen. Short rule-based reasoning scaffolds precede gold actions; these are not expert reasoning traces or an exact reproduction of the teammate's training.
+
+Names include a fixed start date (`qwen35_4b_thinking_20261109_v1`). Keep that date/name and the Git commit fixed for exact interrupted resume. To continue a selected Qwen3.5 best adapter on another day, use a new dated name, `TRAIN_START='best'`, and the previous dated name in `PREVIOUS_RUN_NAME`. This resets the optimizer for an additional session; the prior best remains a selection candidate.
+
+Step 13 is independent, restores thinking settings from the saved run, and uses `ASR-cp/best.pt`. It bounds reasoning and parses only the final JSON after `</think>`. Early stops are reported without blocking complete, schema-valid submissions. Artifacts remain under `MyDrive/Zalo-AI-Challenge-2026`.
+
 # LifeMate training pipeline
 
 Implementation for `notebooks/train_and_infer.ipynb`. The notebook clones this repository and runs these files; it does not generate Python source.

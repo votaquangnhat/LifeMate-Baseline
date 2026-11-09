@@ -76,7 +76,7 @@ def build_args(cfg, smoke=False):
                   num_train_epochs=cfg["epochs"], learning_rate=cfg["learning_rate"], weight_decay=cfg["weight_decay"],
                   lr_scheduler_type="cosine", max_grad_norm=cfg["max_grad_norm"],
                   fp16=amp_mode()=="fp16", bf16=amp_mode()=="bf16", tf32=False,
-                  gradient_checkpointing=False, optim="adamw_8bit",
+                  gradient_checkpointing=False, optim=cfg.get("optimizer", "adamw_8bit"),
                   eval_strategy="no" if smoke else "epoch", save_strategy="no" if smoke else "steps", save_steps=cfg.get("save_steps", 100),
                   load_best_model_at_end=False, save_total_limit=None,
                   prediction_loss_only=True, logging_steps=1 if smoke else cfg["logging_steps"],

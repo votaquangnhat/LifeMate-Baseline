@@ -29,6 +29,8 @@ def prepare_public(cfg):
     from asr_contract import merge_transcripts
     items = merge_transcripts(items, rows)
     tokenizer = AutoTokenizer.from_pretrained(out / "tokenizer")
+    from qwen35_policy import configure_tokenizer
+    configure_tokenizer(tokenizer, cfg)
     tools, ranker = load_catalog(root, "public_test"), CachedReranker(cfg)
     audits, compiled = [], []
     for index, original in enumerate(items):

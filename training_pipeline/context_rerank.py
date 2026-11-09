@@ -19,7 +19,8 @@ RETRIEVAL_KEYS = ("reranker_id", "reranker_revision", "rerank_max_length", "rera
 
 def retrieval_signature(cfg):
     return {"compiler": COMPILER_VERSION, **{k: cfg[k] for k in RETRIEVAL_KEYS},
-            "tool_schema_policy":cfg.get("tool_schema_policy", "compact_all")}
+            "tool_schema_policy":cfg.get("tool_schema_policy", "compact_all"),
+            **({"thinking_policy":cfg["thinking_mode"]} if cfg.get("thinking_mode") else {})}
 
 
 def encode_rerank_pairs(tokenizer, pairs, max_length, return_tensors=None):
@@ -216,6 +217,10 @@ def dependency_closure(selected, names, tools, cfg):
 def compile_context(item, tools, ranker, tokenizer, cfg):
     # Only initial_messages' explicit input whitelist is read. Labels never enter selection.
     source = initial_messages(item, tools, cfg["global_meta_tools"])
+    if cfg.get("thinking_mode"):
+        source[0]["content"] = source[0]["content"].replace(
+            "không markdown, không giải thích, không suy luận.",
+            "sau phần suy luận trong <think>. Phần trả lời cuối chỉ chứa JSON, không markdown.")
     request_marker = "\nFINAL_REQUEST="
     history_raw, request = source[1]["content"].split(request_marker, 1)
     history = json.loads(history_raw.removeprefix("HISTORY="))

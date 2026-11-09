@@ -85,7 +85,7 @@ def run(*, drive_root, trained_run_name, inference_name, code_dir,
                       work_root, asr_mode, asr_model, transcripts, settings)
     print('Restoring selected planner:', training_run / 'best_adapter', flush=True)
     print('ASR:', checkpoint if asr_mode == 'gipformer' else asr_model if asr_mode == 'whisper' else transcripts, flush=True)
-    agent_python = workflow.setup_environment(work_root, output)
+    agent_python = workflow.setup_environment(work_root, output, MODEL_PROFILE=cfg.get("model_profile", "qwen3"))
     data_root = workflow.prepare_data(work_root)
     cfg['data_root'] = str(data_root)
     cfg['max_length'] = max(cfg.get('max_length', 0), inference_max_length)

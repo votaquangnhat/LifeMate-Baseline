@@ -27,8 +27,10 @@ def evaluate(cfg, adapter, part, output):
     items = items[rank::world]
     is_base = adapter == "BASE"
     fingerprint = {"adapter_weights_sha256": "BASE" if is_base else sha256_file(Path(adapter) / "adapter_model.safetensors"),
-                   "engine": "unsloth", "method": "qlora",
-                   "full_attention": "native_unsloth_qwen3",
+                   "engine": "unsloth", "method": "lora" if cfg.get("thinking_mode") else "qlora",
+                   "thinking_tokens":cfg.get("thinking_tokens", 0),
+                   "action_json_tokens":cfg.get("action_json_tokens"),
+                   "full_attention": "native_unsloth_qwen35" if cfg.get("thinking_mode") else "native_unsloth_qwen3",
                    "prepared_sha256": sha256_file(Path(cfg["output_dir"]) / "prepared_fingerprint.json"),
                    "compiled_input_sha256": sha256_file(Path(cfg["output_dir"]) / f"{part}_items.jsonl"),
                    "runtime_versions_sha256": sha256_file(Path(cfg["output_dir"]) / "package_versions.json"),

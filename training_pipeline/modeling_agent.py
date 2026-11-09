@@ -17,6 +17,9 @@ def amp_mode():
 
 
 def load_model(cfg, adapter_path=None, training=False):
+    if cfg.get("model_profile") == "qwen35_thinking":
+        from qwen35_model import load_model as load_qwen35
+        return load_qwen35(cfg, adapter_path, training)
     rank = int(os.environ.get("LOCAL_RANK", "0"))
     torch.cuda.set_device(rank)
     model, _ = FastLanguageModel.from_pretrained(
@@ -98,6 +101,9 @@ class ResponseCollator:
 
 
 def make_generator(model, tokenizer, cfg):
+    if cfg.get("model_profile") == "qwen35_thinking":
+        from qwen35_model import make_generator as generate_qwen35
+        return generate_qwen35(model, tokenizer, cfg)
     @torch.inference_mode()
     def generate(messages):
         ids = prompt_ids(tokenizer, messages)

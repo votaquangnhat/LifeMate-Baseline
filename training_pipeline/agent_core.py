@@ -58,10 +58,11 @@ def training_signature(cfg):
             "lora_dropout", "weight_decay", "warmup_ratio", "max_length", "max_grad_norm")
     return {**{k: cfg[k] for k in keys},
             "initial_adapter_sha256": cfg.get("initial_adapter_sha256"),
-            "engine": "unsloth", "method": "qlora", "load_in_4bit": True,
+            "engine": "unsloth", "method": "lora" if cfg.get("thinking_mode") else "qlora", "load_in_4bit": not bool(cfg.get("thinking_mode")),
+            "thinking_tokens":cfg.get("thinking_tokens", 0),
             "gradient_checkpointing": cfg.get("gradient_checkpointing", "unsloth"),
-            "optimizer": "adamw_8bit",
-            "full_attention": "native_unsloth_qwen3",
+            "optimizer": cfg.get("optimizer", "adamw_8bit"),
+            "full_attention": "native_unsloth_qwen35" if cfg.get("thinking_mode") else "native_unsloth_qwen3",
             "retrieval": __import__("context_rerank").retrieval_signature(cfg),
             "code_sha256": {p.name: sha256_file(p) for p in sorted(Path(cfg["code_dir"]).glob("*.py"))},
             "runtime_versions_sha256": (sha256_file(Path(cfg["output_dir"]) / "package_versions.json")
@@ -205,7 +206,7 @@ def prompt_ids(tokenizer, messages):
     # tools= is intentionally NOT passed: the native tool template requests XML.
     # The system prompt above defines our single-action JSON training protocol.
     return tokenizer.apply_chat_template(messages, tokenize=True,
-                                         add_generation_prompt=True, enable_thinking=False,
+                                         add_generation_prompt=True, enable_thinking=getattr(tokenizer, "lifemate_thinking", False),
                                          return_dict=False)
 
 
@@ -225,7 +226,11 @@ def make_sft_rows(item, tools, observations, global_meta_tools=()):
 def tokenize_sft(row, tokenizer):
     """Tokenize ONCE without truncation; measure before choosing run limits."""
     prefix = prompt_ids(tokenizer, row["messages"])
-    suffix = tokenizer.encode(row["target"] + "<|im_end|>", add_special_tokens=False)
+    suffix_text = row["target"] + "<|im_end|>"
+    if getattr(tokenizer, "lifemate_thinking", False):
+        from qwen35_policy import training_suffix
+        suffix_text = training_suffix(row)
+    suffix = tokenizer.encode(suffix_text, add_special_tokens=False)
     return {"input_ids": prefix + suffix,
             "attention_mask": [1] * (len(prefix) + len(suffix)),
             "labels": [-100] * len(prefix) + suffix,
