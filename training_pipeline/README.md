@@ -23,6 +23,12 @@ python training_pipeline/run_pipeline.py --config /path/to/run_config.json --sta
 
 Other stages: `smoke`, `baseline`, `train`, `select`, `test`, `public`. In Colab, the notebook supplies the isolated interpreter, configuration and Drive paths.
 
+## Inference after training
+
+Step 13 is independent: in a fresh GPU session, run its single code cell directly. It mounts Drive, refreshes a separate repository checkout, and calls `infer_standalone.run`. Set `TRAINED_RUN_NAME` to the saved run containing `best_adapter`, `tokenizer` and `selection.json`. It restores inference artifacts into a separate `inference/<INFERENCE_NAME>/` directory without changing training files. It does not invoke preparation for SFT, training, preflight, or selection.
+
+Default ASR is pretrained `vinai/PhoWhisper-small`, allowing inference while a teammate trains their ASR. This still transcribes every final/history user utterance. To use teammate transcripts later, switch to `ASR_MODE='transcripts'`, set `TRANSCRIPTS_PATH`, and use a new `INFERENCE_NAME`. The existing package-version and public execution-journal checks remain active.
+
 ## Training across days
 
 First day: `TRAIN_START='fresh'`, `RUN_NAME='day1'`, `EPOCHS=2`.
