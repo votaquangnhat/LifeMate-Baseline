@@ -1,5 +1,6 @@
 """Thinking protocol and model migration tests; no weights or CUDA required."""
 import json
+import ast
 import tempfile
 import unittest
 from pathlib import Path
@@ -17,6 +18,22 @@ class Tokenizer:
 
 
 class Tests(unittest.TestCase):
+    def test_notebook_defines_run_variables_before_configure(self):
+        notebook = Path(__file__).resolve().parent.parent / 'notebooks/train_and_infer_qwen35_thinking.ipynb'
+        if not notebook.exists():
+            self.skipTest('Notebook not included in exported runtime source')
+        cells = {c.get('id'): ''.join(c['source']) for c in json.loads(notebook.read_text())['cells']}
+        names = {'MODEL_PROFILE', 'RUN_DATE', 'RUN_NAME', 'EPOCHS', 'TRAIN_START', 'PREVIOUS_RUN_NAME'}
+        assignments = [node for node in ast.parse(cells['cell-002']).body
+                       if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id in names for t in node.targets)]
+        self.assertEqual(len(assignments), len(names), 'Run settings must each be assigned exactly once')
+        scope = {}
+        exec(compile(ast.Module(body=assignments, type_ignores=[]), '<notebook setup>', 'exec'), scope)
+        self.assertTrue(names <= scope.keys())
+        self.assertEqual(scope['TRAIN_START'], 'fresh')
+        self.assertEqual(scope['PREVIOUS_RUN_NAME'], '')
+        self.assertIn(scope['RUN_DATE'], scope['RUN_NAME'])
+
     def test_only_final_action_is_returned(self):
         self.assertEqual(action_from_tokens([4,2,3,0],Tokenizer()),'{"done":true}')
 
