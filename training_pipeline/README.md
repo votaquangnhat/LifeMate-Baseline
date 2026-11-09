@@ -27,7 +27,13 @@ Other stages: `smoke`, `baseline`, `train`, `select`, `test`, `public`. In Colab
 
 Step 13 is independent: in a fresh GPU session, run its single code cell directly. It mounts Drive, refreshes a separate repository checkout, and calls `infer_standalone.run`. Set `TRAINED_RUN_NAME` to the saved run containing `best_adapter`, `tokenizer` and `selection.json`. It restores inference artifacts into a separate `inference/<INFERENCE_NAME>/` directory without changing training files. It does not invoke preparation for SFT, training, preflight, or selection.
 
-Default ASR is pretrained `vinai/PhoWhisper-small`, allowing inference while a teammate trains their ASR. This still transcribes every final/history user utterance. To use teammate transcripts later, switch to `ASR_MODE='transcripts'`, set `TRANSCRIPTS_PATH`, and use a new `INFERENCE_NAME`. The existing package-version and public execution-journal checks remain active.
+Step 13 now defaults to `ASR_MODE='gipformer'`. The default `ASR_CHECKPOINT` is `/content/drive/MyDrive/Zalo-AI-Challenge-2026/ASR-cp/best.pt`, matching the teammate notebook's direct checkpoint loading. Only this file is required: embedded configuration is read and missing pinned release tokenizer/config assets are downloaded automatically. Export folders and ZIPs remain optional alternatives. `gipformer_asr.py` and `gipformer/` implement the supplied Gipformer 1.5 recipe on one GPU, in a separate Python 3.11 / torch 2.8 CUDA 12.8 environment; they do not install that stack over the planner environment or train anything. The saved weights are loaded strictly, with no fallback to pretrained model weights. Decoder context uses only visible context and prior history, never hidden environment state files.
+
+`ASR_MODE='whisper'` remains an explicit fallback using `ASR_MODEL`. To use teammate transcripts directly, choose `ASR_MODE='transcripts'` and set `TRANSCRIPTS_PATH`. All modes cover every final/history user utterance. Use a new `INFERENCE_NAME` when changing the checkpoint or settings. Inference uses an 8,192-token context by default without retraining the planner; the 24-step bound remains in place.
+
+Early planner stops are quality diagnostics, not export failures: complete, schema-valid predictions are exported unchanged, with reasons printed and written to `submission_quality_report.json`. Missing predictions or invalid schemas still block export. The existing package-version and public execution-journal checks remain active.
+
+Gipformer source provenance: extracted and adapted from the user's `lifemate-gipformer-1-5-qwen3-4b-inference.ipynb`. Only architecture/tokenizer, feature extraction, decoding, runtime setup and ASR utilities were retained; the training worker/optimizer and alternate planner were not imported. The icefall commit and CUDA wheel versions are pinned as in that notebook. Actual checkpoint/GPU execution remains to be performed in Colab.
 
 ## Training across days
 

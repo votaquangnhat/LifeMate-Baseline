@@ -68,3 +68,11 @@ GPU training, actual BGE inference, model export downloads and public prediction
 Public inference journals resume completed samples, but deliberately refuse to reset an interrupted in-flight sample, consistent with the supplied SDK's single-session rule. The notebook explains this limit. This is a training/submission notebook, not a final private-round Docker package.
 
 Upstream interfaces checked while preparing the notebook: [Qwen's Unsloth training guide](https://github.com/QwenLM/Qwen3/blob/main/docs/source/training/unsloth.md) and [Transformers Trainer](https://huggingface.co/docs/transformers/main_classes/trainer).
+
+## Gipformer inference update
+
+The later supplied `lifemate-gipformer-1-5-qwen3-4b-inference.ipynb` was inspected, including its embedded feature extractor, vocabulary, model architecture, decoder, checkpoint loading and separate runtime setup. Its ASR inference components now live in `training_pipeline/gipformer/`, integrated through `gipformer_asr.py`. Step 13 defaults to that trained ASR and an 8,192-token planner context, while retaining the user's selected Qwen adapter and completed training outputs. No ASR training is added. The source notebook's optional hidden-initial-state context reads were removed; only visible context/history can supply contextual phrases.
+
+The user's saved notebook reports validation 55.6074 and held-out gold-transcript score 60.2787. The later public result of 21.1 used pretrained PhoWhisper-small; the gap alone does not establish how much is ASR versus public task distribution or planner errors. No public score is promised for Gipformer.
+
+The new ASR checkpoint was not yet present locally. Tests cover checkpoint prefix normalization, ZIP/folder resolution, metadata identity, safe archive extraction, final/history transcript coverage, no hidden-state/gold context, isolated runtime dispatch, and the independent inference path. Colab GPU loading and decoding still require the user's checkpoint. Complete early-stopped predictions now export with printed diagnostics rather than triggering an assertion; schema/coverage validation remains required.

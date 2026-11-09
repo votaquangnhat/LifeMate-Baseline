@@ -79,6 +79,23 @@ class Tests(unittest.TestCase):
                           code_dir=self.code, asr_mode='transcripts', work_root=self.root / 'work')
         workflow.setup_environment.assert_not_called()
 
+    def test_gipformer_mode_uses_teammate_checkpoint_and_larger_context(self):
+        checkpoint = self.root / 'best.pt'
+        checkpoint.write_bytes(b'ASR fine-tuned weights')
+        workflow = Mock()
+        workflow.setup_environment.return_value = self.root / 'python'
+        workflow.prepare_data.return_value = self.root / 'data'
+        with patch.object(inference.importlib, 'reload', return_value=workflow), \
+                patch('gipformer_asr.transcribe') as transcribe:
+            inference.run(drive_root=self.root, trained_run_name='trained', inference_name='gipformer',
+                          code_dir=self.code, asr_mode='gipformer', asr_checkpoint=str(checkpoint),
+                          inference_max_length=8192, work_root=self.root / 'work')
+        self.assertEqual(transcribe.call_args.kwargs['checkpoint'], checkpoint)
+        workflow.prepare_asr.assert_not_called()
+        config = json.loads((self.training / 'inference/gipformer/run_config.json').read_text())
+        self.assertEqual(config['max_length'], 8192)
+        self.assertEqual(workflow.run_stage.call_args.args[-1], 'public')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

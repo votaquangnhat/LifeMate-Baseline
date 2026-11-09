@@ -120,17 +120,44 @@ class Tests(unittest.TestCase):
             'id': 'public_1', 'audio': 'audio/final.wav',
             'history_audio': ['audio/u1.wav', 'audio/u2.wav']})
 
-    def test_aborted_public_run_does_not_replace_existing_submission(self):
+    def test_missing_predictions_do_not_replace_existing_submission(self):
         public = self.root / 'data' / 'public_test'
         public.mkdir(parents=True)
         (public / 'public_test.jsonl').write_text('{"id":"public_1"}\n')
         (self.out / 'public_summary.json').write_text('{"aborted_rollouts":1}')
         latest = self.root / 'submission.jsonl'
         latest.write_text('previous submission')
-        with self.assertRaisesRegex(AssertionError, 'Public rollouts aborted'):
+        with self.assertRaises(FileNotFoundError):
             workflow.publish_submission(self.out, self.root, self.root / 'data',
                                         'day1', self.out / 'best_model', self.root / 'asr.jsonl')
         self.assertEqual(latest.read_text(), 'previous submission')
+
+    def test_complete_early_stop_exports_exact_records_and_reports_errors(self):
+        public = self.root / 'data' / 'public_test'
+        public.mkdir(parents=True)
+        (public / 'public_test.jsonl').write_text('{"id":"public_1"}\n')
+        (self.out / 'public_summary.json').write_text('{"samples":1,"aborted_rollouts":1}')
+        predictions = self.out / 'public_test_best'
+        predictions.mkdir()
+        record = {'id':'public_1', 'tool_calls':[], 'state_hash':'recorded_hash'}
+        source = predictions / 'submission.jsonl'
+        source.write_text(json.dumps(record) + '\n')
+        (predictions / 'predictions_with_trace.jsonl').write_text(json.dumps({**record, 'error':'Context overflow'}) + '\n')
+        asr = self.root / 'asr.jsonl'
+        asr.write_text('{}\n')
+        with patch.object(workflow.subprocess, 'run') as validate:
+            exported = workflow.publish_submission(self.out, self.root, self.root / 'data',
+                                                   'day1', self.out / 'best_adapter', asr)
+        self.assertEqual(exported.read_bytes(), source.read_bytes())
+        self.assertIn('--validate', validate.call_args.args[0])
+        report = json.loads((self.out / 'submission_quality_report.json').read_text())
+        self.assertEqual(report['stopped_samples'], [{'id':'public_1', 'error':'Context overflow'}])
+        exported.write_text('previous')
+        with patch.object(workflow.subprocess, 'run', side_effect=RuntimeError('schema invalid')):
+            with self.assertRaisesRegex(RuntimeError, 'schema invalid'):
+                workflow.publish_submission(self.out, self.root, self.root / 'data',
+                                            'day1', self.out / 'best_adapter', asr)
+        self.assertEqual(exported.read_text(), 'previous')
 
 
 if __name__ == '__main__':
