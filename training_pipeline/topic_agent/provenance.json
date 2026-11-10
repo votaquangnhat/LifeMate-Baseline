@@ -1,0 +1,25 @@
+{
+  "notebook": "resume-qwen3-5-4b-thinking-unsloth-lora-topic.ipynb",
+  "notebook_sha256": "73f77e1dc302130116acaa08343119513db34c5f3f3cd1331f3a1486b842b23f",
+  "extracted_source_sha256": {
+    "agent_core.py": "e8b04d1edcd647014b1b7af0a3b5827fce0acdca2fcaaef6754515c083549d87",
+    "context_rerank.py": "d845a0d605afdc3e667b66f04e56141ab6e848b868b30bc2510be357b7ce8f15",
+    "context_window.py": "c584ba47cfcc9c957af1b0e913b400b6a8a9419f59e83508c19b65f0b949b178",
+    "history_memory.py": "0cd564f8bbaa6ee97a7c11e49b1578880bbec4d28da4cfd7a991b0479a2fca43",
+    "prepare_history.py": "b8ed79ca1cf2f339be5ce7e9567112ea75111dad402c366ff382ffbc27204d9e",
+    "prepare_public.py": "a72ed54202d110a2c3b68fcd803aaafbd9f223032ea8b24685201c6b101e73d4",
+    "modeling_agent.py": "a30e5460173fdbfeb326dfdf9f470541c84d629bb37cea6a1a45406e4d8db369",
+    "thinking_policy.py": "54167043731a0c010baf0ae2f6df1d1fe0085e51ecceba369f5a3e47bd6e5366",
+    "special_tokens.py": "1876ce84be93c89d3f02a2caa9d1c7f427246c18eac4117eceee997403dd57a5",
+    "report_metadata.py": "313fe62d25436eb25bc1e18a01031908c7468fbd4c9dc2f9ff83416028db9e73",
+    "tool_router.py": "c46cb7a6ce4f7b2eddfaa0e5c3298dbcf0963eb8ef6e66176bf2e3bb451572e0",
+    "rollout_agent.py": "f856bd066cfae71e4aa8a0991a20a04d17d94173726e8d27e988f6ab4616ce6e",
+    "session_runtime.py": "c64168f94941a047d932c55b29bee834beddfd7645624bd2b67a675df6c13a28",
+    "selftest_history_router.py": "efa87f81208de2704ae51381500f6c2e6baa7a6a564b8c50f2d64873c8f85b7f",
+    "selftest_context_window.py": "f0a61c65431813d7dc178e9c17483f379799c63a13f803a114b53b3c04f7325e",
+    "selftest_thinking.py": "6d897f3783288e35db51c7bd1d28da02870302762f91083bf28f68044c345f6b",
+    "selftest_qwen35_lora.py": "3008394a3d7ca9e142cc154610b302b414258edfbdfcca7946b55791a3c8b88e",
+    "selftest_agent.py": "f057759efacdc3913b477660bf73afd62201297c93105aadff8510d5005f039e",
+    "selftest_context.py": "c113e62a07fb3df029e3181468c42531366cc8e93768d28d166038ea225675f0"
+  }
+}
