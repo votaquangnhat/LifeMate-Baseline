@@ -22,7 +22,7 @@ def collect(cfg, part, directory):
         summary = metric_summary(rows)
         if cfg.get('history_router'):
             routed=[r['router'] for r in rows]
-            summary['router']={'fallback_rate':sum(r['fallback_all_apps'] for r in routed)/len(routed),
+            summary['router']={'fallback_rate':sum((r['fallback_all_apps'] or r.get('fallback_menu_only',False)) for r in routed)/len(routed),
                 'mean_qwen_calls':sum(r['qwen_calls'] for r in routed)/len(routed),
                 'initial_gold_call_app_coverage':sum(r['initial_gold_call_app_coverage'] for r in routed)/len(routed),
                 'final_gold_call_app_coverage':sum(r['final_gold_call_app_coverage'] for r in routed)/len(routed),

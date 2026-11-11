@@ -21,7 +21,7 @@ def fit_prompt_preserving(tokenizer, messages, cfg, prompt_limit=None):
                  tool_results_compacted=0, old_messages_removed=0, schema_names_only=False,
                  descriptions_removed=False, system_content_shortened=False, emergency_token_clip=False)
     def size(): return len(prompt_ids(tokenizer, result))
-    if size() > limit and result and '\nTOOLS=' in result[0]['content']:
+    if size() > limit and result and '\nTOOLS=' in result[0]['content'] and not cfg.get('preserve_full_schemas'):
         from context_rerank import compact_schema
         prefix, rest = result[0]['content'].split('\nTOOLS=',1)
         specs, context = rest.split('\nCONTEXT=',1)

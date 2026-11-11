@@ -65,8 +65,10 @@ def finish(cfg,part):
             counts['tool_results_compacted']+=trim.get('tool_results_compacted',0)
             counts['old_messages_removed']+=trim.get('old_messages_removed',0)
         counts['duplicate_reads_blocked']+=sum(t.get('phase')=='cached_read' for t in r.get('trace',[]))
-        counts['router_fallbacks']+=bool(r.get('router',{}).get('fallback_all_apps'))
+        counts['router_fallbacks']+=bool(r.get('router',{}).get('fallback_all_apps') or r.get('router',{}).get('fallback_menu_only'))
         counts['invalid_model_actions']+=r.get('invalid_model_actions',0)
+        counts['schema_evictions']+=len(r.get('router',{}).get('schema_evictions',[]))
+        counts['completion_reviews']+=r.get('router',{}).get('completion_reviews',0)
     summary['agent_diagnostics']=dict(counts)
     summary['adapter_sha256']=sha256_file(Path(cfg['import_dir'])/'best_adapter/adapter_model.safetensors')
     summary['variant']=cfg['agent_variant']

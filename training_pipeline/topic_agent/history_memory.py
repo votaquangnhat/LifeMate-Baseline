@@ -153,7 +153,7 @@ def bound_history(blocks,selected,tokenizer,budget):
 
 
 def retrieve_history(history,bundle,request,ranker,tokenizer,cfg):
-    if cfg.get("agent_variant") == "enhanced":
+    if cfg.get("agent_variant") == "enhanced" or cfg.get("protected_context"):
         from context_preserving import retrieve_history_preserving
         return retrieve_history_preserving(history,bundle,request,ranker,tokenizer,cfg)
     from context_rerank import history_blocks

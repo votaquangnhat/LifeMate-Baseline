@@ -79,6 +79,22 @@ def analyze(cfg,part,rows):
             transcript=inputs[str(r['id'])].get('audio_text'),error=r.get('error'),
             extra_exact_calls=extra,missing_exact_calls=missing,argument_differences=fields,
             trace_file=str(out/'validation_best/predictions_with_trace.jsonl')))
+    coverage=[]
+    for r in rows:
+        ref=refs[str(r['id'])]
+        required={c['name'].split('.',1)[0] for c in ref['tool_calls'] if not c['name'].startswith('sys.')}
+        opened=set(r.get('router',{}).get('final_apps',[]))
+        executed={c['name'].split('.',1)[0] for c in r['tool_calls']}
+        coverage.append(dict(id=r['id'],score=r['score'],required_apps=sorted(required),
+            initial_apps=r.get('router',{}).get('initial_apps',[]),ever_opened_apps=sorted(opened),
+            never_opened_required_apps=sorted(required-opened),
+            opened_but_not_executed_required_apps=sorted((required&opened)-executed),
+            app_coverage_complete=required<=opened))
+    write_json(out/'validation_app_coverage.json',{
+        'samples':len(rows),'samples_with_unopened_required_apps':sum(bool(r['never_opened_required_apps']) for r in coverage),
+        'samples_with_opened_but_unused_required_apps':sum(bool(r['opened_but_not_executed_required_apps']) for r in coverage),
+        'note':'Reference apps are consulted only AFTER rollout. Initial router omissions are expected with lazy loading. Coverage is necessary, not sufficient: wrong arguments/calls can still fail.',
+        'cases':coverage})
     write_json(out/'validation_error_analysis.json',dict(common,categories=dict(groups),
         transcript_source='asr' if cfg.get('validation_transcripts_path') else 'gold',
         note='Groups describe outcomes, not proven causes. Exact call diffs and same-name argument pairing are review aids; original fuzzy competition scores are unchanged.'))

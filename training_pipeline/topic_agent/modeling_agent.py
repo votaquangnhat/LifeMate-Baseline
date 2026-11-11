@@ -189,4 +189,5 @@ def make_generator(model, tokenizer, cfg):
         elif eos not in generated:
             raise ValueError("Action exhausted token budget without EOS; partial call was not executed")
         return tokenizer.decode(generated, skip_special_tokens=not thinking, clean_up_tokenization_spaces=False).strip()
+    generate.tokenizer = tokenizer
     return generate

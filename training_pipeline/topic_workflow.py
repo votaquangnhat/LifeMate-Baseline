@@ -41,10 +41,11 @@ def prepare(*, drive_root, import_name, experiment_name, adapter_zip, reports_zi
 
 
 VARIANTS = ('baseline','enhanced','read_guard')
+ALL_VARIANTS = VARIANTS + ('menu','menu_recovery')
 
 
 def configure(session,variant,transcripts='',validation_transcripts=None):
-    if variant not in VARIANTS:raise ValueError('MODE must be baseline, enhanced or read_guard')
+    if variant not in ALL_VARIANTS:raise ValueError('Unknown agent variant')
     imported=Path(session['imported']);out=Path(session['experiment'])/variant;out.mkdir(parents=True,exist_ok=True)
     cfg=json.loads((imported/'run_config.json').read_text())
     # Kaggle runtime deadlines/paths are not model parameters and must not cross into a new session.
@@ -57,6 +58,10 @@ def configure(session,variant,transcripts='',validation_transcripts=None):
     if variant=='enhanced':
         cfg.update(max_length=8192,max_length_cap=8192,requested_max_length=8192,
                    history_token_budget=2048,router_prompt_tokens=4096,executor_prompt_tokens=7168)
+    if variant in ('menu','menu_recovery'):
+        cfg.update(menu_agent=True,menu_recovery=variant=='menu_recovery',protected_context=True,preserve_full_schemas=True,
+                   max_length=8192,max_length_cap=8192,requested_max_length=8192,history_token_budget=1536,
+                   router_prompt_tokens=4096,executor_prompt_tokens=7168)
     if variant=='read_guard':
         cfg.update(duplicate_read_guard=True,max_duplicate_read_blocks=3)
     config=out/'run_config.json'
@@ -98,19 +103,22 @@ def run_part(session,cfg,part):
     command(session,cfg,'infer.py','--stage','finish','--part',part)
 
 
-def compare_validation(session,validation_transcripts=''):
+def compare_validation(session,validation_transcripts='',variants=None):
+    variants=tuple(variants or VARIANTS)
+    if len(variants)<2 or len(set(variants))!=len(variants) or any(v not in ALL_VARIANTS for v in variants):
+        raise ValueError('Choose at least two distinct supported variants')
     for name in ('validation_references.jsonl','split_assignments.json'):
         if not (Path(session['imported'])/name).is_file():
             raise FileNotFoundError('Upload reports.zip from the same teammate run; missing '+name)
     metrics={}
-    for variant in VARIANTS:
+    for variant in variants:
         cfg=configure(session,variant,validation_transcripts=validation_transcripts);run_part(session,cfg,'validation')
         metrics[variant]=json.loads((Path(cfg['output_dir'])/'validation_metrics.json').read_text())
-    for variant in VARIANTS[1:]:
-        if any(metrics['baseline'].get(k)!=metrics[variant].get(k) for k in ('adapter_sha256','samples','validation_transcripts_sha256')):
+    for variant in variants[1:]:
+        if any(metrics[variants[0]].get(k)!=metrics[variant].get(k) for k in ('adapter_sha256','samples','validation_transcripts_sha256')):
             raise ValueError('Comparison requires the same adapter, validation samples and transcripts')
-    chosen=max(VARIANTS,key=lambda v:metrics[v]['official_score_100'])
-    report={'selection':'full original validation split; baseline wins ties','chosen':chosen,'metrics':metrics,
+    chosen=max(variants,key=lambda v:metrics[v]['official_score_100'])
+    report={'selection':'full original validation split; first reference variant wins ties','chosen':chosen,'metrics':metrics,
             'validation_input':'asr' if validation_transcripts else 'gold',
             'validation_transcripts_sha256':digest(validation_transcripts) if validation_transcripts else None,
             'experiment_source_sha256':digest(Path(session['experiment'])/'experiment_source.json')}
@@ -120,8 +128,8 @@ def compare_validation(session,validation_transcripts=''):
 
 
 def choose_mode(session,mode):
-    if mode in VARIANTS:return mode
-    if mode!='auto':raise ValueError('MODE must be auto, baseline, enhanced or read_guard')
+    if mode in ALL_VARIANTS:return mode
+    if mode!='auto':raise ValueError('Unknown MODE')
     path=Path(session['experiment'])/'agent_comparison.json'
     if not path.is_file():
         raise FileNotFoundError('Run the validation comparison first, or explicitly set MODE="baseline" / "enhanced".')
@@ -147,3 +155,26 @@ def public(session,*,mode='auto',asr_mode='gipformer',asr_checkpoint='',transcri
     exported=colab_workflow.publish_submission(Path(cfg['output_dir']),Path(session['root']),Path(session['data']),
         Path(session['experiment']).name+'/'+variant,Path(session['imported'])/'best_adapter',transcripts)
     return exported
+
+
+def previous_winner(session,previous_experiment):
+    path=Path(session['root'])/'runs'/_name(previous_experiment)/'agent_comparison.json'
+    if not path.is_file():
+        raise FileNotFoundError('Previous comparison not found. Set REFERENCE_MODE to the exact mode used for your 55.4 submission.')
+    report=json.loads(path.read_text());chosen=report['chosen']
+    if chosen not in VARIANTS:raise ValueError('Previous experiment is not one of the existing reference variants')
+    weights=digest(Path(session['imported'])/'best_adapter/adapter_model.safetensors')
+    if report['metrics'][chosen].get('adapter_sha256')!=weights:
+        raise ValueError('Previous experiment used different weights; this is not a same-adapter comparison')
+    return chosen
+
+
+def previous_transcripts(session,previous_experiment,reference_mode):
+    directory=Path(session['root'])/'runs'/_name(previous_experiment)/reference_mode
+    cfg=json.loads((directory/'run_config.json').read_text())
+    path=Path(cfg.get('public_transcripts_path') or '__missing_transcripts__')
+    if not path.is_file():raise FileNotFoundError('Set TRANSCRIPTS_PATH to the exact public ASR JSONL used for the 55.4 run.')
+    marker=directory/'public_rerank_fingerprint.json'
+    if not marker.is_file() or json.loads(marker.read_text()).get('transcripts')!=digest(path):
+        raise ValueError('Previous ASR transcripts cannot be verified. Select an explicit transcript file for the new run.')
+    return str(path)

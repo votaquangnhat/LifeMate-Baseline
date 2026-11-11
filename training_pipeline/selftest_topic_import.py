@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 from topic_artifacts import import_export,validated_config
 from topic_environment import pinned_packages
-from topic_workflow import configure,choose_mode,compare_validation
+from topic_workflow import configure,choose_mode,compare_validation,previous_winner,previous_transcripts
 
 
 def fixture_config():
@@ -99,6 +99,46 @@ class Tests(unittest.TestCase):
             exec(compile(ast.Module(body=nodes,type_ignores=[]),'<notebook configuration>','exec'),scope)
             self.assertTrue(required<=scope.keys())
             self.assertEqual(scope['ADAPTER_ZIP'].name,'best_adapter.zip')
+        for c in json.loads(notebook.read_text())['cells']:
+            if c['cell_type']=='code':ast.parse(''.join(c['source']))
+
+    def test_menu_variants_keep_weights_and_validate_reference_and_asr(self):
+        from topic_artifacts import digest
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp);imported=import_export(create_archive(root),root/'import')
+            exp=root/'runs'/'new';exp.mkdir(parents=True);(exp/'package_versions.json').write_text('{}')
+            session=dict(root=str(root),imported=str(imported),experiment=str(exp),data=str(root/'data'),code='code',work=str(root/'work'))
+            cfg=configure(session,'menu_recovery')
+            self.assertEqual(cfg['model_id'],'unsloth/Qwen3.5-4B')
+            self.assertEqual(cfg['lora_rank'],8);self.assertTrue(cfg['preserve_full_schemas'])
+            self.assertTrue(cfg['menu_recovery']);self.assertTrue(cfg['thinking_mode'])
+            prior=root/'runs'/'old';prior.mkdir()
+            write={'chosen':'enhanced','metrics':{'enhanced':{'adapter_sha256':digest(imported/'best_adapter/adapter_model.safetensors')}}}
+            (prior/'agent_comparison.json').write_text(json.dumps(write))
+            self.assertEqual(previous_winner(session,'old'),'enhanced')
+            directory=prior/'enhanced';directory.mkdir();asr=root/'asr.jsonl';asr.write_text('{}')
+            (directory/'run_config.json').write_text(json.dumps({'public_transcripts_path':str(asr)}))
+            (directory/'public_rerank_fingerprint.json').write_text(json.dumps({'transcripts':digest(asr)}))
+            self.assertEqual(previous_transcripts(session,'old','enhanced'),str(asr))
+            asr.write_text('different')
+            with self.assertRaisesRegex(ValueError,'cannot be verified'):previous_transcripts(session,'old','enhanced')
+            write['metrics']['enhanced']['adapter_sha256']='different'
+            (prior/'agent_comparison.json').write_text(json.dumps(write))
+            with self.assertRaisesRegex(ValueError,'different weights'):previous_winner(session,'old')
+
+    def test_new_menu_notebook_defines_its_independent_inputs(self):
+        notebook=Path(__file__).resolve().parent.parent/'notebooks/menu_agent_inference.ipynb'
+        cells={c.get('id'):''.join(c['source']) for c in json.loads(notebook.read_text())['cells']}
+        needed={'DRIVE_ROOT','IMPORT_NAME','PREVIOUS_EXPERIMENT','REFERENCE_MODE','EXPERIMENT_NAME',
+                'ADAPTER_ZIP','REPORTS_ZIP','WORK_ROOT'}
+        for name in ('mount','public'):
+            names=needed | ({'MODE','ASR_MODE','TRANSCRIPTS_PATH','ASR_CHECKPOINT','ASR_DECODER'} if name=='public' else set())
+            tree=ast.parse(cells[name]);scope={'Path':Path}
+            nodes=[n for n in tree.body if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id in names for t in n.targets)]
+            exec(compile(ast.Module(body=nodes,type_ignores=[]),'<menu notebook>','exec'),scope)
+            self.assertTrue(names<=scope.keys())
+            self.assertEqual(scope['IMPORT_NAME'],'teammate_topic_20261109')
+            if name=='public':self.assertEqual(scope['ASR_MODE'],'transcripts')
         for c in json.loads(notebook.read_text())['cells']:
             if c['cell_type']=='code':ast.parse(''.join(c['source']))
 

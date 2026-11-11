@@ -48,6 +48,9 @@ def short_menu(names,tools,description_chars):
 
 
 def router_messages(ctx,tools,cfg,tokenizer):
+    if cfg.get("menu_agent"):
+        from menu_agent import router_prompt
+        return router_prompt(ctx,tools,cfg,tokenizer)
     system=ROUTER_SYSTEM
     if cfg.get('thinking_mode'):
         from thinking_policy import ACTION_RULE
@@ -159,6 +162,9 @@ def make_router_sft_rows(item,tools,calls,observations,tokenizer,cfg):
 
 
 def routed_rollout(item,tools,env,generate,cfg):
+    if cfg.get("menu_agent"):
+        from menu_agent import execute
+        return execute(item,tools,env,generate,cfg)
     ctx=item['_router_context'];allowed=set(ctx['names']);apps=available_apps(ctx['names'])
     trace=[];invalid=0;error=None;trims=[];route_error=None;initial=None;qwen_calls=0
     thinking_events=[]

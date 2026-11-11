@@ -77,6 +77,10 @@ def evaluate(cfg, adapter, part, output):
                         visible=set(result['router'][key])
                         result['router'][phase+'_gold_call_app_coverage']=sum(a in visible for a in required)/len(required) if required else 1.
                     result['router']['final_all_required_apps_available']=all(a in result['router']['final_apps'] for a in required)
+                    opened=set(result['router']['final_apps'])
+                    executed={c['name'].split('.',1)[0] for c in result['tool_calls']}
+                    result['router']['never_opened_gold_apps']=sorted(set(required)-opened)
+                    result['router']['opened_but_not_executed_gold_apps']=sorted(set(required)&opened-executed)
             records.extend([{"phase":"started","id":sid},
                             {"phase":"finished","id":sid,"result":result}])
             # Atomic replacement prevents a truncated journal on a hard deadline.

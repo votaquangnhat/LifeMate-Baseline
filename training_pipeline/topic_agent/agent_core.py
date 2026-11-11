@@ -87,6 +87,7 @@ def catalog_tools(catalog):
             if name in result:
                 raise ValueError("Duplicate tool in catalog: " + name)
             value.update(name=name, app=value.get("app", app_id))
+            value["_app"] = {"id":app_id, **{k:app[k] for k in ("name_vi","name","description","group") if k in app}}
             value.setdefault("parameters", {"type": "object", "properties": {}})
             result[name] = value
     return result

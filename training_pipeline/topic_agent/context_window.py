@@ -39,7 +39,7 @@ def fit_prompt(tokenizer, messages, cfg, prompt_limit=None):
     final fallback clips encoded prompt IDs, preserving its head and latest tail.
     Gold target tokens are never passed to this function.
     """
-    if cfg.get("agent_variant") == "enhanced":
+    if cfg.get("agent_variant") == "enhanced" or cfg.get("protected_context"):
         from context_preserving import fit_prompt_preserving
         return fit_prompt_preserving(tokenizer,messages,cfg,prompt_limit)
     capacity=int(cfg.get("max_length",cfg.get("max_length_cap",8192)))
